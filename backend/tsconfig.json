@@ -11,13 +11,13 @@
     },
     "resolveJsonModule": true,
     "sourceMap": true,
-    "outDir": "dist",
+    "outDir": "backend/dist",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": false,
     "strict": true,
     "noImplicitAny": true,
     "skipLibCheck": true
   },
-  "include": ["./src"],
+  "include": ["backend/src"],
   "exclude": ["node_modules/**/*"]
 }

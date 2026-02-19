@@ -6,7 +6,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.setupDocs = setupDocs;
 const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
 const swagger_jsdoc_1 = __importDefault(require("swagger-jsdoc"));
-const path_1 = __importDefault(require("path"));
 function setupDocs(app) {
     const swaggerDefinition = {
         openapi: "3.0.0",
@@ -56,7 +55,7 @@ function setupDocs(app) {
     };
     const options = {
         swaggerDefinition,
-        apis: [path_1.default.join(__dirname, "..", "**", "*.ts")],
+        apis: [`${process.cwd()}/src/**/*.ts`],
     };
     const swaggerSpec = (0, swagger_jsdoc_1.default)(options);
     // Pick ONE route. If you use /swagger in browser, mount it here:

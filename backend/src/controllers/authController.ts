@@ -1,46 +1,25 @@
-// imports
 import { type Request, type Response, type NextFunction } from "express";
-
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import Joi, { type ValidationResult } from "joi";
 
-// Project imports
 import { userModel } from "../models/userModel";
 import { type User } from "../interfaces/user";
 import { connect, disconnect } from "../repository/database";
 
-/**
- * Register a new user
- * @param req
- * @param res
- * @returns
- */
 export async function registerUser(req: Request, res: Response) {
   try {
-    // validate the user and password info
     const { error } = validateUserRegistrationInfo(req.body);
-
-    if (error) {
-      res.status(400).json({ error: error.details[0].message });
-      return;
-    }
+    if (error) return res.status(400).json({ error: error.details[0].message });
 
     await connect();
 
-    // check if the email is already registered
     const emailExists = await userModel.findOne({ email: req.body.email });
+    if (emailExists) return res.status(400).json({ error: "Email already exists." });
 
-    if (emailExists) {
-      res.status(400).json({ error: "Email already exists." });
-      return;
-    }
-
-    // hash password
     const salt = await bcrypt.genSalt(10);
     const passwordHashed = await bcrypt.hash(req.body.password, salt);
 
-    // create user
     const userObject = new userModel({
       name: req.body.name,
       email: req.body.email,
@@ -48,119 +27,96 @@ export async function registerUser(req: Request, res: Response) {
     });
 
     const savedUser = await userObject.save();
-    res.status(201).json({ error: null, data: savedUser._id });
-
+    return res.status(201).json({ error: null, data: { userId: savedUser._id } });
   } catch (error) {
-    res.status(500).send("Error registering user. Error: " + error);
+    return res.status(500).send("Error registering user. Error: " + error);
   } finally {
     await disconnect();
   }
 }
 
-/**
- * Login an existing user
- * @param req
- * @param res
- * @returns
- */
 export async function loginUser(req: Request, res: Response) {
   try {
-    // validate user login info
     const { error } = validateUserLoginInfo(req.body);
+    if (error) return res.status(400).json({ error: error.details[0].message });
 
-    if (error) {
-      res.status(400).json({ error: error.details[0].message });
-      return;
-    }
-
-    // find the user in the repository
     await connect();
 
     const user: User | null = await userModel.findOne({ email: req.body.email });
+    if (!user) return res.status(400).json({ error: "Password or email is wrong." });
 
-    if (!user) {
-      res.status(400).json({ error: "Password or email is wrong." });
-      return;
-    }
+    const validPassword = await bcrypt.compare(req.body.password, user.password);
+    if (!validPassword) return res.status(400).json({ error: "Password or email is wrong." });
 
-    // verify password
-    const validPassword: boolean = await bcrypt.compare(req.body.password, user.password);
+    const TOKEN_SECRET = process.env.TOKEN_SECRET;
+    if (!TOKEN_SECRET) return res.status(500).json({ error: "Missing TOKEN_SECRET in env." });
 
-    if (!validPassword) {
-      res.status(400).json({ error: "Password or email is wrong." });
-      return;
-    }
+    const userId = String(user.id);
 
-    // create auth token and send it back
-    const userId: string = user.id;
-
-    const token: string = jwt.sign(
-      {
-        // payload
-        name: user.name,
-        email: user.email,
-        id: userId
-      },
-      process.env.TOKEN_SECRET as string,
+    const token = jwt.sign(
+      { id: userId, name: user.name, email: user.email },
+      TOKEN_SECRET,
       { expiresIn: "2h" }
     );
 
-    // attach the token and send it back to the client
-    res.status(200)
+    // Return token in body, and also set headers for convenience
+    return res
+      .status(200)
       .header("auth-token", token)
       .json({ error: null, data: { userId, token } });
 
   } catch (error) {
-    res.status(500).send("Error logging in user. Error: " + error);
+    return res.status(500).send("Error logging in user. Error: " + error);
   } finally {
     await disconnect();
   }
 }
 
 /**
- * Middleware logic to verify the client JWT token
- * @param req
- * @param res
- * @param next
+ * JWT middleware:
+ * Accepts either:
+ *  - Authorization: Bearer <token>
+ *  - auth-token: <token>
  */
 export function verifyToken(req: Request, res: Response, next: NextFunction) {
-  const token = req.header("auth-token");
+  const bearer = req.header("Authorization"); // "Bearer xxx"
+  const legacy = req.header("auth-token");    // "xxx"
 
-  if (!token) {
-    res.status(400).json({ error: "Access Denied." });
-    return;
-  }
+  const token =
+    (bearer && bearer.startsWith("Bearer ") ? bearer.slice(7).trim() : null) ||
+    legacy ||
+    null;
+
+  if (!token) return res.status(401).json({ error: "Access Denied. Missing token." });
 
   try {
-    jwt.verify(token, process.env.TOKEN_SECRET as string);
-    next();
+    const TOKEN_SECRET = process.env.TOKEN_SECRET;
+    if (!TOKEN_SECRET) return res.status(500).json({ error: "Missing TOKEN_SECRET in env." });
+
+    const decoded = jwt.verify(token, TOKEN_SECRET);
+    // Optional: attach to req for later use
+    (req as any).user = decoded;
+
+    return next();
   } catch {
-    res.status(401).send("Invalid Token");
+    return res.status(401).json({ error: "Invalid Token" });
   }
 }
 
-/**
- * Validate user registration info (name, email, password)
- * @param data
- */
 export function validateUserRegistrationInfo(data: User): ValidationResult {
   const schema = Joi.object({
-    name: Joi.string().min(6).max(255).required(),
+    name: Joi.string().min(2).max(255).required(),
     email: Joi.string().email().min(6).max(255).required(),
-    password: Joi.string().min(6).max(20).required()
+    password: Joi.string().min(6).max(64).required()
   });
 
   return schema.validate(data);
 }
 
-/**
- * Validate user login info (email, password)
- * @param data
- */
 export function validateUserLoginInfo(data: User): ValidationResult {
   const schema = Joi.object({
     email: Joi.string().email().min(6).max(255).required(),
-    password: Joi.string().min(6).max(20).required()
+    password: Joi.string().min(6).max(64).required()
   });
 
   return schema.validate(data);

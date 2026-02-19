@@ -2,50 +2,73 @@ import { Request, Response } from "express";
 import { movieModel } from "../models/moviesModel";
 import { connect, disconnect } from "../repository/database";
 
-// CRUD - create, read/get, update, delete
+function isValidUrl(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
-/**
- * Creates a new movie in the data source based on the request body
- * @param req
- * @param res
- */
+function pickMovieBody(body: any) {
+  const movie: any = {};
+
+  if (typeof body.title === "string") movie.title = body.title;
+  if (typeof body.genre === "string") movie.genre = body.genre;
+  if (typeof body.releaseYear === "number") movie.releaseYear = body.releaseYear;
+  if (typeof body.watched === "boolean") movie.watched = body.watched;
+  if (typeof body.owner === "string") movie.owner = body.owner;
+
+  // ✅ posterUrl (optional)
+  if (body.posterUrl !== undefined) {
+    if (!isValidUrl(body.posterUrl)) {
+      throw new Error("posterUrl must be a valid http/https URL");
+    }
+    movie.posterUrl = body.posterUrl;
+  }
+
+  // ✅ rating (optional, allow 0-5)
+  if (body.rating !== undefined) {
+    const r = Number(body.rating);
+    if (!Number.isFinite(r) || r < 0 || r > 5) {
+      throw new Error("rating must be a number between 0 and 5");
+    }
+    movie.rating = r;
+  }
+
+  return movie;
+}
+
 export async function createMovie(req: Request, res: Response): Promise<void> {
-  const data = req.body;
-
   try {
     await connect();
 
+    const data = pickMovieBody(req.body); // ✅ only allowed fields
     const movie = new movieModel(data);
     const result = await movie.save();
 
     res.status(201).send(result);
-  } catch (err) {
-    res.status(500).send("Error creating movie. Error: " + err);
+  } catch (err: any) {
+    const msg = String(err?.message || err);
+    res.status(msg.includes("posterUrl") || msg.includes("rating") ? 400 : 500).send(msg);
   } finally {
     await disconnect();
   }
 }
 
-/**
- * Retrieves all movies from the data sources
- * @param req
- * @param res
- */
 export async function getAllMovies(req: Request, res: Response) {
   try {
     await connect();
 
     const { title, genre, watched, owner, minRating } = req.query;
-
     const filter: any = {};
 
     if (title) filter.title = { $regex: String(title), $options: "i" };
     if (genre) filter.genre = { $regex: String(genre), $options: "i" };
 
-    if (watched !== undefined) {
-      filter.watched = String(watched) === "true";
-    }
-
+    if (watched !== undefined) filter.watched = String(watched) === "true";
     if (owner) filter.owner = String(owner);
 
     if (minRating !== undefined) {
@@ -62,11 +85,6 @@ export async function getAllMovies(req: Request, res: Response) {
   }
 }
 
-/**
- * Retrieves a movie by its id from the data sources
- * @param req
- * @param res
- */
 export async function getMovieById(req: Request, res: Response) {
   try {
     await connect();
@@ -82,12 +100,6 @@ export async function getMovieById(req: Request, res: Response) {
   }
 }
 
-/**
- * Retrieves movies by query from the data sources
- * Example: /api/movies/search/title/Dune
- * @param req
- * @param res
- */
 export async function getMoviesByQuery(req: Request, res: Response) {
   const key = String(req.params.key);
   const val = req.params.val;
@@ -95,8 +107,6 @@ export async function getMoviesByQuery(req: Request, res: Response) {
   try {
     await connect();
 
-    // NOTE:
-    // TypeScript might complain about [key] - casting to any keeps it identical to teacher style
     const result = await movieModel.find({
       [key]: { $regex: val, $options: "i" }
     } as any);
@@ -109,36 +119,25 @@ export async function getMoviesByQuery(req: Request, res: Response) {
   }
 }
 
-/**
- * Updates the movie by id
- * @param req
- * @param res
- */
 export async function updateMovieById(req: Request, res: Response) {
   const id = req.params.id;
 
   try {
     await connect();
 
-    const result = await movieModel.findByIdAndUpdate(id, req.body);
+    const update = pickMovieBody(req.body); // ✅ validate + pick
+    const result = await movieModel.findByIdAndUpdate(id, update, { new: true });
 
-    if (!result) {
-      res.status(404).send("Cannot update movie with id=" + id);
-    } else {
-      res.status(200).send("Movie was succesfully updated.");
-    }
-  } catch (err) {
-    res.status(500).send("Error updating movie by id. Error: " + err);
+    if (!result) res.status(404).send("Cannot update movie with id=" + id);
+    else res.status(200).send(result);
+  } catch (err: any) {
+    const msg = String(err?.message || err);
+    res.status(msg.includes("posterUrl") || msg.includes("rating") ? 400 : 500).send(msg);
   } finally {
     await disconnect();
   }
 }
 
-/**
- * Deletes the movie by its id from the data sources
- * @param req
- * @param res
- */
 export async function deleteMovieById(req: Request, res: Response) {
   const id = req.params.id;
 
@@ -147,11 +146,8 @@ export async function deleteMovieById(req: Request, res: Response) {
 
     const result = await movieModel.findByIdAndDelete(id);
 
-    if (!result) {
-      res.status(404).send("Cannot delete movie with id=" + id);
-    } else {
-      res.status(200).send("Movie was succesfully deleted.");
-    }
+    if (!result) res.status(404).send("Cannot delete movie with id=" + id);
+    else res.status(200).send("Movie was succesfully deleted.");
   } catch (err) {
     res.status(500).send("Error deleting movie by id. Error: " + err);
   } finally {
@@ -163,8 +159,9 @@ export async function updateMovieRating(req: Request, res: Response) {
   const id = req.params.id;
   const rating = Number(req.body.rating);
 
-  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
-    res.status(400).send("Rating must be a number between 1 and 5.");
+  // ✅ allow 0-5
+  if (!Number.isFinite(rating) || rating < 0 || rating > 5) {
+    res.status(400).send("Rating must be a number between 0 and 5.");
     return;
   }
 
@@ -177,11 +174,8 @@ export async function updateMovieRating(req: Request, res: Response) {
       { new: true }
     );
 
-    if (!result) {
-      res.status(404).send("Cannot update rating for movie with id=" + id);
-    } else {
-      res.status(200).send(result);
-    }
+    if (!result) res.status(404).send("Cannot update rating for movie with id=" + id);
+    else res.status(200).send(result);
   } catch (err) {
     res.status(500).send("Error updating rating. Error: " + err);
   } finally {

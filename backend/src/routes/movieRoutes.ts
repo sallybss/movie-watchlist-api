@@ -1,27 +1,24 @@
 import { Router } from "express";
+import { verifyToken } from "../controllers/authController";
 import {
   createMovie,
   getAllMovies,
   getMovieById,
   updateMovieById,
   deleteMovieById,
-  getMoviesByQuery,
-  updateMovieRating
+  getMoviesByQuery
 } from "../controllers/movieController";
-
-import { verifyToken } from "../controllers/authController";
 
 const router = Router();
 
-// Public read routes
+// Public read routes (optional — you can protect these too)
 router.get("/", getAllMovies);
+router.get("/query/:field/:value", getMoviesByQuery);
 router.get("/:id", getMovieById);
-router.get("/search/:key/:val", getMoviesByQuery);
 
 // Protected write routes
 router.post("/", verifyToken, createMovie);
 router.put("/:id", verifyToken, updateMovieById);
-router.put("/:id/rating", updateMovieRating);
 router.delete("/:id", verifyToken, deleteMovieById);
 
 export default router;
