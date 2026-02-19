@@ -35,8 +35,25 @@ export async function getAllMovies(req: Request, res: Response) {
   try {
     await connect();
 
-    const result = await movieModel.find({});
+    const { title, genre, watched, owner, minRating } = req.query;
 
+    const filter: any = {};
+
+    if (title) filter.title = { $regex: String(title), $options: "i" };
+    if (genre) filter.genre = { $regex: String(genre), $options: "i" };
+
+    if (watched !== undefined) {
+      filter.watched = String(watched) === "true";
+    }
+
+    if (owner) filter.owner = String(owner);
+
+    if (minRating !== undefined) {
+      const r = Number(minRating);
+      if (!Number.isNaN(r)) filter.rating = { $gte: r };
+    }
+
+    const result = await movieModel.find(filter).sort({ createdAt: -1 });
     res.status(200).send(result);
   } catch (err) {
     res.status(500).send("Error retrieving movies. Error: " + err);
@@ -137,6 +154,36 @@ export async function deleteMovieById(req: Request, res: Response) {
     }
   } catch (err) {
     res.status(500).send("Error deleting movie by id. Error: " + err);
+  } finally {
+    await disconnect();
+  }
+}
+
+export async function updateMovieRating(req: Request, res: Response) {
+  const id = req.params.id;
+  const rating = Number(req.body.rating);
+
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+    res.status(400).send("Rating must be a number between 1 and 5.");
+    return;
+  }
+
+  try {
+    await connect();
+
+    const result = await movieModel.findByIdAndUpdate(
+      id,
+      { rating },
+      { new: true }
+    );
+
+    if (!result) {
+      res.status(404).send("Cannot update rating for movie with id=" + id);
+    } else {
+      res.status(200).send(result);
+    }
+  } catch (err) {
+    res.status(500).send("Error updating rating. Error: " + err);
   } finally {
     await disconnect();
   }

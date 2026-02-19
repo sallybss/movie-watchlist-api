@@ -53,7 +53,7 @@ export function setupDocs(app: Application) {
 
   const options = {
     swaggerDefinition,
-    apis: [path.join(__dirname, "..", "**", "*.ts")], // ✅ scans src/**/*.ts
+    apis: [`${process.cwd()}/src/**/*.ts`],
   };
 
   const swaggerSpec = swaggerJSDoc(options);

@@ -151,7 +151,7 @@ router.use("/movies", moviesRoutes);
  *     tags:
  *       - Movie Routes
  *     summary: Search movies by field/value
- *     description: Example: /api/movies/query/title/Dune
+ *     description: "Example: /api/movies/search/title/Dune"
  *     parameters:
  *       - in: path
  *         name: field
