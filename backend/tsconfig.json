@@ -1,23 +1,23 @@
 {
   "compilerOptions": {
-    "allowJs": true,
-    "checkJs": true,
+    // "allowJs": true,
+    // "checkJs": true,
     "target": "es2016",
     "module": "commonjs",
     "moduleResolution": "node",
     "baseUrl": ".",
-    "paths": {
-      "*": ["node_modules/*"]
-    },
+    // "paths": {
+    //   "*": ["node_modules/*"]
+    // },
     "resolveJsonModule": true,
     "sourceMap": true,
-    "outDir": "backend/dist",
+    "outDir": "dist",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": false,
     "strict": true,
     "noImplicitAny": true,
     "skipLibCheck": true
   },
-  "include": ["backend/src"],
+  "include": ["src"],
   "exclude": ["node_modules/**/*"]
 }

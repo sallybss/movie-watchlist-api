@@ -1,8 +1,38 @@
 <script setup lang="ts">
-import { ref } from "vue"
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { loginUser } from "../services/api";
+import { showToast } from "../composables/useToast";
 
-const email = ref("")
-const password = ref("")
+const router = useRouter();
+
+const email = ref("");
+const password = ref("");
+
+const loading = ref(false);
+const errorMsg = ref<string | null>(null);
+
+async function onSubmit() {
+  errorMsg.value = null;
+  loading.value = true;
+
+  try {
+    const res = await loginUser(email.value, password.value);
+
+    if (res?.data?.token) {
+      showToast("Welcome back. Logged in successfully.", "success");
+      router.push("/");
+    } else {
+      errorMsg.value = res?.error || "Login failed";
+      showToast(errorMsg.value || "Login failed", "error");
+    }
+  } catch (err: any) {
+    errorMsg.value = err.message || "Login failed";
+    showToast(errorMsg.value || "Login failed", "error");
+  } finally {
+    loading.value = false;
+  }
+}
 </script>
 
 <template>
@@ -15,14 +45,18 @@ const password = ref("")
 
       <h1>Sign in</h1>
 
-      <form class="form" @submit.prevent>
+      <form class="form" @submit.prevent="onSubmit">
         <label>Email</label>
         <input v-model="email" class="input" type="email" placeholder="you@example.com" />
 
         <label>Password</label>
         <input v-model="password" class="input" type="password" placeholder="Enter password" />
 
-        <button class="submit" type="submit">Continue</button>
+        <p v-if="errorMsg" class="error">{{ errorMsg }}</p>
+
+        <button class="submit" type="submit" :disabled="loading">
+          {{ loading ? "Signing in..." : "Continue" }}
+        </button>
 
         <div class="row">
           <label class="check">
@@ -103,6 +137,16 @@ label {
   border-color: #7664d7;
 }
 
+.error {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+  font-size: 14px;
+}
+
 .submit {
   width: 100%;
   height: 48px;
@@ -114,6 +158,11 @@ label {
   font-size: 14px;
   font-weight: 900;
   cursor: pointer;
+}
+
+.submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .row {
@@ -136,15 +185,5 @@ label {
   color: rgba(255, 255, 255, 0.8);
   text-decoration: none;
   font-size: 14px;
-}
-
-@media (max-width: 640px) {
-  h1 {
-    font-size: 42px;
-  }
-
-  .panel__head {
-    justify-content: flex-start;
-  }
 }
 </style>

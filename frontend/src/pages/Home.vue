@@ -1,23 +1,26 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue"
+import { computed, onMounted, onUnmounted, ref } from "vue"
 import MovieCard from "../components/MovieCard.vue"
+import { getAllMovies, type Movie as ApiMovie } from "../services/api"
 
-interface Movie {
-  _id: string
-  title: string
+type Movie = ApiMovie & {
   posterUrl?: string
-  genre?: string
-  releaseYear?: number
-  rating?: number
 }
 
 const movies = ref<Movie[]>([])
 const search = ref("")
+const loading = ref(false)
+const errorMsg = ref<string | null>(null)
+const isLoggedIn = ref(false)
+
+function syncAuthState() {
+  isLoggedIn.value = Boolean(localStorage.getItem("token"))
+}
 
 const filteredMovies = computed(() => {
-  return movies.value.filter(m => {
-    return m.title.toLowerCase().includes(search.value.toLowerCase())
-  })
+  const q = search.value.trim().toLowerCase()
+  if (!q) return movies.value
+  return movies.value.filter((m) => (m.title || "").toLowerCase().includes(q))
 })
 
 const stackMovies = computed(() => filteredMovies.value.slice(0, 4))
@@ -32,11 +35,33 @@ const featuredMediaStyle = computed(() => {
 })
 
 async function fetchMovies() {
-  const res = await fetch("http://localhost:4000/api/movies")
-  movies.value = await res.json()
+  loading.value = true
+  errorMsg.value = null
+
+  try {
+    // Uses your API helper (respects VITE_API_BASE + token headers etc.)
+    const data = await getAllMovies()
+
+    // If your backend doesn't have posterUrl, we keep it optional
+    movies.value = (data as Movie[]) || []
+  } catch (err: any) {
+    errorMsg.value = err?.message || "Could not fetch movies"
+  } finally {
+    loading.value = false
+  }
 }
 
-onMounted(fetchMovies)
+onMounted(() => {
+  fetchMovies()
+  syncAuthState()
+  window.addEventListener("storage", syncAuthState)
+  window.addEventListener("auth-changed", syncAuthState)
+})
+
+onUnmounted(() => {
+  window.removeEventListener("storage", syncAuthState)
+  window.removeEventListener("auth-changed", syncAuthState)
+})
 </script>
 
 <template>
@@ -54,18 +79,21 @@ onMounted(fetchMovies)
     <article class="featureCard">
       <button class="featureCard__close" type="button" aria-label="Close">✕</button>
       <div class="featureCard__media" :style="featuredMediaStyle"></div>
+
       <div class="featureCard__overlay">
         <h1>{{ featuredMovie?.title ?? "Your Next Favorite" }}</h1>
+
         <div class="meta">
           <span>{{ featuredMovie?.rating ?? "-" }} ★</span>
           <span>{{ featuredMovie?.releaseYear ?? "-" }}</span>
           <span>{{ featuredMovie?.genre ?? "Unknown" }}</span>
         </div>
+
         <p class="featureCard__description">
           Build your collection, track what you watched, and instantly filter the perfect pick.
         </p>
 
-        <div class="featureCard__actions">
+        <div v-if="!isLoggedIn" class="featureCard__actions">
           <router-link class="btnPrimary" to="/register">Get access</router-link>
           <router-link class="btnGhost" to="/login">Login</router-link>
         </div>
@@ -79,17 +107,23 @@ onMounted(fetchMovies)
 
   <section class="sectionHead">
     <h2>Browse</h2>
-    <p>{{ filteredMovies.length }} results</p>
+    <p v-if="loading">Loading…</p>
+    <p v-else>{{ filteredMovies.length }} results</p>
   </section>
 
-  <section v-if="filteredMovies.length === 0" class="empty">
+  <section v-if="errorMsg" class="empty">
+    <p class="errorTitle">Could not load movies</p>
+    <p class="errorText">{{ errorMsg }}</p>
+    <button class="retry" type="button" @click="fetchMovies">Retry</button>
+  </section>
+
+  <section v-else-if="!loading && filteredMovies.length === 0" class="empty">
     No movies yet...
   </section>
 
-  <section class="grid">
+  <section v-else class="grid">
     <MovieCard v-for="m in filteredMovies" :key="m._id" :movie="m" />
   </section>
-  
 </template>
 
 <style scoped>
@@ -128,17 +162,14 @@ onMounted(fetchMovies)
   transform: translate(-240px, 42px) rotate(-14deg);
   background: linear-gradient(160deg, rgba(243, 74, 74, 0.45), rgba(83, 23, 19, 0.26));
 }
-
 .stack__card--2 {
   transform: translate(-170px, 26px) rotate(-8deg);
   background: linear-gradient(160deg, rgba(236, 161, 90, 0.44), rgba(145, 79, 30, 0.3));
 }
-
 .stack__card--3 {
   transform: translate(-95px, 12px) rotate(-4deg);
   background: linear-gradient(160deg, rgba(74, 202, 212, 0.48), rgba(16, 57, 73, 0.3));
 }
-
 .stack__card--4 {
   transform: translate(-28px, -3px) rotate(-2deg);
   background: linear-gradient(160deg, rgba(157, 213, 255, 0.42), rgba(38, 85, 123, 0.3));
@@ -163,6 +194,8 @@ onMounted(fetchMovies)
     radial-gradient(90% 130% at 78% 10%, rgba(146, 217, 255, 0.45) 0%, rgba(39, 62, 84, 0.18) 58%, transparent 100%),
     linear-gradient(130deg, rgba(25, 35, 64, 0.5), rgba(14, 39, 66, 0.1)),
     linear-gradient(180deg, #6ba3bb 0%, #4c6a75 30%, #1f2937 68%, #0f172a 100%);
+  background-size: cover;
+  background-position: center;
 }
 
 .featureCard__overlay {
@@ -247,6 +280,7 @@ h1 {
 }
 
 .input {
+  width: 100%;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.16);
   color: #fff;
@@ -254,6 +288,7 @@ h1 {
   border-radius: 10px;
   outline: none;
   min-height: 44px;
+  box-sizing: border-box;
 }
 
 .input::placeholder {
@@ -269,7 +304,32 @@ h1 {
 .sectionHead h2 { margin: 0; }
 .sectionHead p { margin: 0; opacity: 0.7; }
 
-.empty { opacity: 0.8; padding: 30px 0; text-align: center; }
+.empty {
+  opacity: 0.9;
+  padding: 30px 0;
+  text-align: center;
+}
+
+.errorTitle {
+  margin: 0 0 6px;
+  font-weight: 900;
+}
+
+.errorText {
+  margin: 0 0 14px;
+  opacity: 0.8;
+}
+
+.retry {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(118, 100, 215, 0.25);
+  color: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
 
 .grid {
   display: grid;
@@ -306,5 +366,4 @@ h1 {
     font-size: 30px;
   }
 }
-
 </style>

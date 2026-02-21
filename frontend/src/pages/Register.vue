@@ -1,10 +1,42 @@
 <script setup lang="ts">
-import { ref } from "vue"
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { registerUser } from "../services/api";
+import { showToast } from "../composables/useToast";
 
-const firstName = ref("")
-const lastName = ref("")
-const email = ref("")
-const password = ref("")
+const router = useRouter();
+
+const firstName = ref("");
+const lastName = ref("");
+const email = ref("");
+const password = ref("");
+
+const loading = ref(false);
+const errorMsg = ref<string | null>(null);
+
+async function onSubmit() {
+  errorMsg.value = null;
+  loading.value = true;
+
+  try {
+    const name = `${firstName.value} ${lastName.value}`.trim();
+
+    const res = await registerUser(name, email.value, password.value);
+
+    if (res?.data?.userId) {
+      showToast("Account created. Please sign in.", "success");
+      router.push("/login");
+    } else {
+      errorMsg.value = res?.error || "Registration failed";
+      showToast(errorMsg.value || "Registration failed", "error");
+    }
+  } catch (err: any) {
+    errorMsg.value = err.message || "Registration failed";
+    showToast(errorMsg.value || "Registration failed", "error");
+  } finally {
+    loading.value = false;
+  }
+}
 </script>
 
 <template>
@@ -17,7 +49,7 @@ const password = ref("")
 
       <h1>Sign up</h1>
 
-      <form class="form" @submit.prevent>
+      <form class="form" @submit.prevent="onSubmit">
         <div class="nameGrid">
           <div>
             <label>First Name</label>
@@ -25,17 +57,21 @@ const password = ref("")
           </div>
           <div>
             <label>Last Name</label>
-            <input v-model="lastName" class="input" placeholder="Ahmed" />
+            <input v-model="lastName" class="input" placeholder="Bseso" />
           </div>
         </div>
 
-        <label>Email or Phone</label>
+        <label>Email</label>
         <input v-model="email" class="input" type="email" placeholder="you@example.com" />
 
-        <label>Create New Password</label>
+        <label>Password</label>
         <input v-model="password" class="input" type="password" placeholder="Min 6 characters" />
 
-        <button class="submit" type="submit">Continue</button>
+        <p v-if="errorMsg" class="error">{{ errorMsg }}</p>
+
+        <button class="submit" type="submit" :disabled="loading">
+          {{ loading ? "Creating..." : "Continue" }}
+        </button>
 
         <label class="check">
           <input type="checkbox" />
@@ -119,6 +155,16 @@ label {
   border-color: #7664d7;
 }
 
+.error {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+  font-size: 14px;
+}
+
 .submit {
   width: 100%;
   height: 48px;
@@ -132,6 +178,11 @@ label {
   cursor: pointer;
 }
 
+.submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .check {
   display: flex;
   align-items: center;
@@ -139,20 +190,5 @@ label {
   font-size: 14px;
   color: rgba(255, 255, 255, 0.9);
   margin-top: 10px;
-}
-
-@media (max-width: 640px) {
-  h1 {
-    font-size: 42px;
-  }
-
-  .nameGrid {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
-
-  .panel__head {
-    justify-content: flex-start;
-  }
 }
 </style>
