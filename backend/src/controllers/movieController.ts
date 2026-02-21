@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { movieModel } from "../models/moviesModel";
+import { userModel } from "../models/userModel";
 import { connect, disconnect } from "../repository/database";
 
 function isValidUrl(value: unknown): boolean {
@@ -39,6 +40,11 @@ function pickMovieBody(body: any) {
   }
 
   return movie;
+}
+
+function getAuthUserId(req: Request): string | null {
+  const user = (req as any).user as { id?: string } | undefined;
+  return typeof user?.id === "string" ? user.id : null;
 }
 
 export async function createMovie(req: Request, res: Response): Promise<void> {
@@ -178,6 +184,126 @@ export async function updateMovieRating(req: Request, res: Response) {
     else res.status(200).send(result);
   } catch (err) {
     res.status(500).send("Error updating rating. Error: " + err);
+  } finally {
+    await disconnect();
+  }
+}
+
+export async function getFavoriteMovieIds(req: Request, res: Response) {
+  try {
+    await connect();
+
+    const userId = getAuthUserId(req);
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const user = await userModel.findById(userId).select("favorites");
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const favorites = Array.isArray(user.favorites) ? user.favorites.map((id: any) => String(id)) : [];
+    res.status(200).json({ error: null, data: favorites });
+  } catch (err) {
+    res.status(500).send("Error retrieving favorite movies. Error: " + err);
+  } finally {
+    await disconnect();
+  }
+}
+
+export async function getFavoriteMovies(req: Request, res: Response) {
+  try {
+    await connect();
+
+    const userId = getAuthUserId(req);
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const user = await userModel.findById(userId).select("favorites");
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const favorites = Array.isArray(user.favorites) ? user.favorites : [];
+    const movies = await movieModel.find({ _id: { $in: favorites } }).sort({ createdAt: -1 });
+
+    res.status(200).json({ error: null, data: movies });
+  } catch (err) {
+    res.status(500).send("Error retrieving favorite movies. Error: " + err);
+  } finally {
+    await disconnect();
+  }
+}
+
+export async function addFavoriteMovie(req: Request, res: Response) {
+  try {
+    await connect();
+
+    const userId = getAuthUserId(req);
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const movieId = req.params.id;
+    const movie = await movieModel.findById(movieId).select("_id");
+    if (!movie) {
+      res.status(404).json({ error: "Movie not found" });
+      return;
+    }
+
+    const updated = await userModel
+      .findByIdAndUpdate(userId, { $addToSet: { favorites: movieId } }, { new: true })
+      .select("favorites");
+
+    if (!updated) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const favorites = Array.isArray(updated.favorites)
+      ? updated.favorites.map((id: any) => String(id))
+      : [];
+    res.status(200).json({ error: null, data: favorites });
+  } catch (err) {
+    res.status(500).send("Error adding favorite movie. Error: " + err);
+  } finally {
+    await disconnect();
+  }
+}
+
+export async function removeFavoriteMovie(req: Request, res: Response) {
+  try {
+    await connect();
+
+    const userId = getAuthUserId(req);
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const movieId = req.params.id;
+    const updated = await userModel
+      .findByIdAndUpdate(userId, { $pull: { favorites: movieId } }, { new: true })
+      .select("favorites");
+
+    if (!updated) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const favorites = Array.isArray(updated.favorites)
+      ? updated.favorites.map((id: any) => String(id))
+      : [];
+    res.status(200).json({ error: null, data: favorites });
+  } catch (err) {
+    res.status(500).send("Error removing favorite movie. Error: " + err);
   } finally {
     await disconnect();
   }

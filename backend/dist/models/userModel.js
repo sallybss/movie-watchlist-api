@@ -6,7 +6,8 @@ const userSchema = new mongoose_1.Schema({
     name: { type: String, required: true, min: 6, max: 255 },
     email: { type: String, required: true, min: 6, max: 255, unique: true },
     password: { type: String, required: true, min: 6, max: 255 },
-    registerDate: { type: Date, required: true, default: Date.now }
+    registerDate: { type: Date, required: true, default: Date.now },
+    favorites: [{ type: mongoose_1.Schema.Types.ObjectId, ref: "Movie", default: [] }],
 });
-exports.userModel = (0, mongoose_1.model)('User', userSchema);
+exports.userModel = (0, mongoose_1.model)("User", userSchema);
 //# sourceMappingURL=userModel.js.map

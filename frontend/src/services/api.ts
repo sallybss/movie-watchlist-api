@@ -38,6 +38,11 @@ export function logout() {
   window.dispatchEvent(new Event("auth-changed"));
 }
 
+type FavoritesResponse<T> = {
+  error: null | string;
+  data?: T;
+};
+
 function getNameFromToken(token: string): string | null {
   try {
     const parts = token.split(".");
@@ -130,6 +135,36 @@ export async function loginUser(email: string, password: string) {
 // ---------- MOVIES ----------
 export async function getAllMovies() {
   return apiFetch<Movie[]>("/movies", { method: "GET" });
+}
+
+export async function getFavoriteMovieIds() {
+  const res = await apiFetch<FavoritesResponse<string[]>>("/movies/favorites/ids", {
+    method: "GET",
+  });
+  return res?.data ?? [];
+}
+
+export async function getFavoriteMovies() {
+  const res = await apiFetch<FavoritesResponse<Movie[]>>("/movies/favorites", {
+    method: "GET",
+  });
+  return res?.data ?? [];
+}
+
+export async function addFavoriteMovie(movieId: string) {
+  const res = await apiFetch<FavoritesResponse<string[]>>(`/movies/${movieId}/favorite`, {
+    method: "POST",
+  });
+  window.dispatchEvent(new Event("favorites-changed"));
+  return res?.data ?? [];
+}
+
+export async function removeFavoriteMovie(movieId: string) {
+  const res = await apiFetch<FavoritesResponse<string[]>>(`/movies/${movieId}/favorite`, {
+    method: "DELETE",
+  });
+  window.dispatchEvent(new Event("favorites-changed"));
+  return res?.data ?? [];
 }
 
 // protected create (if your backend uses verifyToken on POST /movies)

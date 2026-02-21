@@ -168,5 +168,84 @@ router.use("/movies", movieRoutes_1.default);
  *       200:
  *         description: List of movies
  */
+/**
+ * @swagger
+ * /movies/favorites:
+ *   get:
+ *     tags:
+ *       - Movie Routes
+ *     summary: Get favorite movies for current user
+ *     description: Returns full movie objects saved as favorites by the authenticated user
+ *     security:
+ *       - ApiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: List of favorite movies
+ *       401:
+ *         description: Missing or invalid token
+ */
+/**
+ * @swagger
+ * /movies/favorites/ids:
+ *   get:
+ *     tags:
+ *       - Movie Routes
+ *     summary: Get favorite movie ids for current user
+ *     description: Returns only movie ids saved as favorites by the authenticated user
+ *     security:
+ *       - ApiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: List of favorite movie ids
+ *       401:
+ *         description: Missing or invalid token
+ */
+/**
+ * @swagger
+ * /movies/{id}/favorite:
+ *   post:
+ *     tags:
+ *       - Movie Routes
+ *     summary: Add movie to favorites
+ *     description: Adds the specified movie to the authenticated user's favorites list
+ *     security:
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: MongoDB movie id
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Updated favorite movie ids
+ *       401:
+ *         description: Missing or invalid token
+ *       404:
+ *         description: Movie or user not found
+ *
+ *   delete:
+ *     tags:
+ *       - Movie Routes
+ *     summary: Remove movie from favorites
+ *     description: Removes the specified movie from the authenticated user's favorites list
+ *     security:
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: MongoDB movie id
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Updated favorite movie ids
+ *       401:
+ *         description: Missing or invalid token
+ *       404:
+ *         description: User not found
+ */
 exports.default = router;
 //# sourceMappingURL=routes.js.map

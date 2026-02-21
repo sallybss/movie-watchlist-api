@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue"
 import MovieCard from "../components/MovieCard.vue"
-import { getAllMovies, type Movie as ApiMovie } from "../services/api"
+import {
+  addFavoriteMovie,
+  getAllMovies,
+  getFavoriteMovieIds,
+  removeFavoriteMovie,
+  type Movie as ApiMovie,
+} from "../services/api"
+import { showToast } from "../composables/useToast"
 
 type Movie = ApiMovie & {
   posterUrl?: string
@@ -12,9 +19,18 @@ const search = ref("")
 const loading = ref(false)
 const errorMsg = ref<string | null>(null)
 const isLoggedIn = ref(false)
+const favoriteMovieIds = ref<string[]>([])
 
 function syncAuthState() {
   isLoggedIn.value = Boolean(localStorage.getItem("token"))
+  if (!isLoggedIn.value) {
+    favoriteMovieIds.value = []
+  }
+}
+
+function onAuthChanged() {
+  syncAuthState()
+  fetchFavorites()
 }
 
 const filteredMovies = computed(() => {
@@ -51,16 +67,48 @@ async function fetchMovies() {
   }
 }
 
+function isFavoriteMovie(movieId: string) {
+  return favoriteMovieIds.value.includes(movieId)
+}
+
+async function fetchFavorites() {
+  if (!isLoggedIn.value) {
+    favoriteMovieIds.value = []
+    return
+  }
+
+  try {
+    favoriteMovieIds.value = await getFavoriteMovieIds()
+  } catch {
+    favoriteMovieIds.value = []
+  }
+}
+
+async function onToggleFavorite(movieId: string) {
+  try {
+    const wasAdded = !isFavoriteMovie(movieId)
+    favoriteMovieIds.value = wasAdded
+      ? await addFavoriteMovie(movieId)
+      : await removeFavoriteMovie(movieId)
+    showToast(wasAdded ? "Added to favorites" : "Removed from favorites", "success")
+  } catch (err: any) {
+    showToast(err?.message || "Could not update favorites", "error")
+  }
+}
+
 onMounted(() => {
   fetchMovies()
   syncAuthState()
-  window.addEventListener("storage", syncAuthState)
-  window.addEventListener("auth-changed", syncAuthState)
+  fetchFavorites()
+  window.addEventListener("storage", onAuthChanged)
+  window.addEventListener("auth-changed", onAuthChanged)
+  window.addEventListener("favorites-changed", fetchFavorites)
 })
 
 onUnmounted(() => {
-  window.removeEventListener("storage", syncAuthState)
-  window.removeEventListener("auth-changed", syncAuthState)
+  window.removeEventListener("storage", onAuthChanged)
+  window.removeEventListener("auth-changed", onAuthChanged)
+  window.removeEventListener("favorites-changed", fetchFavorites)
 })
 </script>
 
@@ -108,7 +156,10 @@ onUnmounted(() => {
   <section class="sectionHead">
     <h2>Browse</h2>
     <p v-if="loading">Loading…</p>
-    <p v-else>{{ filteredMovies.length }} results</p>
+    <p v-else>
+      {{ filteredMovies.length }} results
+      <template v-if="isLoggedIn"> • {{ favoriteMovieIds.length }} favorites</template>
+    </p>
   </section>
 
   <section v-if="errorMsg" class="empty">
@@ -122,7 +173,14 @@ onUnmounted(() => {
   </section>
 
   <section v-else class="grid">
-    <MovieCard v-for="m in filteredMovies" :key="m._id" :movie="m" />
+    <MovieCard
+      v-for="m in filteredMovies"
+      :key="m._id"
+      :movie="m"
+      :show-favorite-button="isLoggedIn"
+      :is-favorite="isFavoriteMovie(m._id)"
+      @toggle-favorite="onToggleFavorite"
+    />
   </section>
 </template>
 

@@ -65,7 +65,8 @@ onUnmounted(() => {
       <router-link to="/" class="brand">WATCHLIST</router-link>
 
       <div class="links">
-        <a class="link is-active" href="#">For you</a>
+        <router-link class="link" to="/">For you</router-link>
+        <router-link v-if="isLoggedIn" class="link" to="/watchlist">My Movie Watchlist</router-link>
       </div>
     </div>
 
@@ -128,7 +129,7 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.08);
 }
 
-.link.is-active {
+.link.router-link-active {
   color: #fff;
   background: rgba(255, 255, 255, 0.14);
 }

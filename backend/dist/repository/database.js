@@ -16,15 +16,16 @@ exports.testConnection = testConnection;
 exports.connect = connect;
 exports.disconnect = disconnect;
 const mongoose_1 = __importDefault(require("mongoose"));
+let connectPromise = null;
 function testConnection() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             yield connect();
-            yield disconnect();
-            console.log('Database connection test completed (connect + disconnect)');
+            console.log("Database connection test completed");
         }
         catch (error) {
-            console.log('Error testing database connection. Error: ' + error);
+            console.log("Error testing database connection. Error: " + error);
+            throw error;
         }
     });
 }
@@ -32,30 +33,45 @@ function connect() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             if (!process.env.DBHOST) {
-                throw new Error('DBHOST environment variable is not defined');
+                throw new Error("DBHOST environment variable is not defined");
             }
-            yield mongoose_1.default.connect(process.env.DBHOST);
+            // 1 = connected, 2 = connecting
+            if (mongoose_1.default.connection.readyState === 1)
+                return;
+            if (mongoose_1.default.connection.readyState === 2 && connectPromise) {
+                yield connectPromise;
+                return;
+            }
+            connectPromise = mongoose_1.default.connect(process.env.DBHOST);
+            yield connectPromise;
             if (mongoose_1.default.connection.db) {
                 yield mongoose_1.default.connection.db.admin().command({ ping: 1 });
-                console.log("Connection established");
             }
             else {
-                throw new Error('Database connection is not established');
+                throw new Error("Database connection is not established");
             }
         }
         catch (error) {
-            console.log('Error connecting to the database. Error: ' + error);
+            console.log("Error connecting to the database. Error: " + error);
+            throw error;
+        }
+        finally {
+            connectPromise = null;
         }
     });
 }
 function disconnect() {
-    return __awaiter(this, void 0, void 0, function* () {
+    return __awaiter(this, arguments, void 0, function* (force = false) {
+        // Keep one shared connection alive for request handlers.
+        if (!force)
+            return;
         try {
             yield mongoose_1.default.disconnect();
-            console.log('Connection closed');
+            console.log("Connection closed");
         }
         catch (error) {
-            console.log('Error closing database connection. Error: ' + error);
+            console.log("Error closing database connection. Error: " + error);
+            throw error;
         }
     });
 }
