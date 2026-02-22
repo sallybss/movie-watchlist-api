@@ -350,7 +350,7 @@ onUnmounted(() => {
   z-index: 8;
   width: 58px;
   height: 58px;
-  border-radius: 999px;
+  border-radius: 10px;
   border: 2px solid rgba(255, 255, 255, 0.38);
   background: rgba(26, 10, 40, 0.5);
   backdrop-filter: blur(6px);
@@ -445,6 +445,7 @@ h1 {
 .btnList {
   background: #f4d139;
   color: #111827;
+  padding: 0 10px;
 }
 
 .filterBar {

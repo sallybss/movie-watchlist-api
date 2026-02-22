@@ -140,7 +140,7 @@ onUnmounted(() => {
   text-decoration: none;
   color: rgba(255, 255, 255, 0.82);
   padding: 8px 12px;
-  border-radius: 999px;
+  border-radius: 10px;
   font-weight: 600;
   font-size: 14px;
 }
@@ -177,7 +177,7 @@ onUnmounted(() => {
   font-weight: 700;
   font-size: 14px;
   padding: 8px 14px;
-  border-radius: 999px;
+  border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: transparent;
 }

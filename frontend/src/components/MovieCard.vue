@@ -105,7 +105,7 @@ function ratingStars(rating?: number) {
   background: rgba(8, 7, 16, 0.7);
   color: #ffd2e7;
   padding: 0;
-  border-radius: 999px;
+  border-radius: 10px;
   font-size: 16px;
   font-weight: 700;
 }

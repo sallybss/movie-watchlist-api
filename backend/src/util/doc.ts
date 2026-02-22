@@ -9,12 +9,19 @@ export function setupDocs(app: Application) {
     info: {
       title: "Movie Watchlist API",
       version: "1.0.0",
-      description: "MongoDB + Express + TypeScript REST API for managing a movie watchlist",
+      description:
+        "MongoDB + Express + TypeScript REST API for managing a movie watchlist",
     },
     servers: [
       {
-        url: "http://localhost:4000/api",
-        description: "Local development server",
+        url:
+          process.env.NODE_ENV === "production"
+            ? "https://YOUR-BACKEND-NAME.onrender.com/api"
+            : "http://localhost:4000/api",
+        description:
+          process.env.NODE_ENV === "production"
+            ? "Production server"
+            : "Local development server",
       },
     ],
     components: {
@@ -51,9 +58,15 @@ export function setupDocs(app: Application) {
     },
   };
 
+  const isProd = process.env.NODE_ENV === "production";
+
   const options = {
     swaggerDefinition,
-    apis: [`${process.cwd()}/src/**/*.ts`],
+    apis: [
+      isProd
+        ? path.join(__dirname, "..", "**", "*.js") 
+        : path.join(process.cwd(), "src", "**", "*.ts"), 
+    ],
   };
 
   const swaggerSpec = swaggerJSDoc(options);
