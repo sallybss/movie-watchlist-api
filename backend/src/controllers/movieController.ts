@@ -22,7 +22,6 @@ function pickMovieBody(body: any) {
   if (typeof body.watched === "boolean") movie.watched = body.watched;
   if (typeof body.owner === "string") movie.owner = body.owner;
 
-  // ✅ posterUrl (optional)
   if (body.posterUrl !== undefined) {
     if (!isValidUrl(body.posterUrl)) {
       throw new Error("posterUrl must be a valid http/https URL");
@@ -30,7 +29,6 @@ function pickMovieBody(body: any) {
     movie.posterUrl = body.posterUrl;
   }
 
-  // ✅ rating (optional, allow 0-5)
   if (body.rating !== undefined) {
     const r = Number(body.rating);
     if (!Number.isFinite(r) || r < 0 || r > 5) {
@@ -51,7 +49,7 @@ export async function createMovie(req: Request, res: Response): Promise<void> {
   try {
     await connect();
 
-    const data = pickMovieBody(req.body); // ✅ only allowed fields
+    const data = pickMovieBody(req.body); 
     const movie = new movieModel(data);
     const result = await movie.save();
 
@@ -131,7 +129,7 @@ export async function updateMovieById(req: Request, res: Response) {
   try {
     await connect();
 
-    const update = pickMovieBody(req.body); // ✅ validate + pick
+    const update = pickMovieBody(req.body); 
     const result = await movieModel.findByIdAndUpdate(id, update, { new: true });
 
     if (!result) res.status(404).send("Cannot update movie with id=" + id);
@@ -165,7 +163,6 @@ export async function updateMovieRating(req: Request, res: Response) {
   const id = req.params.id;
   const rating = Number(req.body.rating);
 
-  // ✅ allow 0-5
   if (!Number.isFinite(rating) || rating < 0 || rating > 5) {
     res.status(400).send("Rating must be a number between 0 and 5.");
     return;

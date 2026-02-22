@@ -4,21 +4,14 @@ import { Movie } from "../interfaces/movies";
 const movieSchema = new Schema<Movie>(
   {
     title: { type: String, required: true, minlength: 1, maxlength: 255 },
-
-    // ✅ Online poster image URL
     posterUrl: { type: String, required: false, maxlength: 2048 },
-
     genre: { type: String, required: false, minlength: 1, maxlength: 100 },
     releaseYear: { type: Number, required: false, min: 1888, max: 2100 },
-
     watched: { type: Boolean, required: true, default: false },
-
-    // ✅ allow 0 = "not rated yet"
     rating: { type: Number, required: false, min: 0, max: 5 },
-
     owner: { type: String, ref: "User", required: true }
   },
-  { timestamps: true } // ✅ so your sort({ createdAt: -1 }) actually works
+  { timestamps: true } 
 );
 
 type UpdateQuery<T> = {

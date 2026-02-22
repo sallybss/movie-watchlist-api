@@ -58,6 +58,5 @@ export function setupDocs(app: Application) {
 
   const swaggerSpec = swaggerJSDoc(options);
 
-  // Pick ONE route. If you use /swagger in browser, mount it here:
   app.use("/swagger", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 }

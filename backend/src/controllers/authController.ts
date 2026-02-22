@@ -59,7 +59,6 @@ export async function loginUser(req: Request, res: Response) {
       { expiresIn: "2h" }
     );
 
-    // Return token in body, and also set headers for convenience
     return res
       .status(200)
       .header("auth-token", token)
@@ -72,15 +71,10 @@ export async function loginUser(req: Request, res: Response) {
   }
 }
 
-/**
- * JWT middleware:
- * Accepts either:
- *  - Authorization: Bearer <token>
- *  - auth-token: <token>
- */
+
 export function verifyToken(req: Request, res: Response, next: NextFunction) {
-  const bearer = req.header("Authorization"); // "Bearer xxx"
-  const legacy = req.header("auth-token");    // "xxx"
+  const bearer = req.header("Authorization");
+  const legacy = req.header("auth-token");    
 
   const token =
     (bearer && bearer.startsWith("Bearer ") ? bearer.slice(7).trim() : null) ||
@@ -94,7 +88,6 @@ export function verifyToken(req: Request, res: Response, next: NextFunction) {
     if (!TOKEN_SECRET) return res.status(500).json({ error: "Missing TOKEN_SECRET in env." });
 
     const decoded = jwt.verify(token, TOKEN_SECRET);
-    // Optional: attach to req for later use
     (req as any).user = decoded;
 
     return next();

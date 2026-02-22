@@ -15,14 +15,12 @@ import {
 
 const router = Router();
 
-// Public read routes (optional — you can protect these too)
 router.get("/", getAllMovies);
 router.get("/query/:field/:value", getMoviesByQuery);
 router.get("/favorites", verifyToken, getFavoriteMovies);
 router.get("/favorites/ids", verifyToken, getFavoriteMovieIds);
 router.get("/:id", getMovieById);
 
-// Protected write routes
 router.post("/", verifyToken, createMovie);
 router.post("/:id/favorite", verifyToken, addFavoriteMovie);
 router.put("/:id", verifyToken, updateMovieById);

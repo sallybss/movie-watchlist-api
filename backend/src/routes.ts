@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express";
+import { Router, type Request, type Response } from "express";
 import moviesRoutes from "./routes/movieRoutes";
 import authRoutes from "./routes/authRoutes";
 
@@ -8,26 +8,34 @@ const router: Router = Router();
  * @swagger
  * /:
  *   get:
- *     tags:
- *       - App Routes
- *     summary: Health check
- *     description: Basic route to check if the API is running
+ *     tags: [System]
+ *     summary: API status
+ *     description: Quick check that the Movie Watchlist API is alive.
  *     responses:
  *       200:
- *         description: Server up and running.
+ *         description: API is running
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: Welcome to the movie-watchlist API
  */
 router.get("/", (_req: Request, res: Response) => {
-  res.status(200).send({ message: "Welcome to the movie-watchlist API" });
+  res.status(200).json({ message: "Welcome to the movie-watchlist API" });
 });
+
+/**
+ * AUTH
+ * We mount /auth routes here.
+ * Actual endpoints live inside authRoutes (ex: /auth/register, /auth/login).
+ */
 
 /**
  * @swagger
  * /auth/register:
  *   post:
- *     tags:
- *       - Auth Routes
- *     summary: Register a new user
- *     description: Creates a new user account
+ *     tags: [Auth]
+ *     summary: Create an account
+ *     description: Register a new user so you can use protected endpoints (create/update/delete).
  *     requestBody:
  *       required: true
  *       content:
@@ -40,18 +48,33 @@ router.get("/", (_req: Request, res: Response) => {
  *             password: "123456"
  *     responses:
  *       201:
- *         description: User created successfully
+ *         description: User created
+ *       400:
+ *         description: Validation error / email already exists
  */
 router.use("/auth", authRoutes);
 
 /**
+ * MOVIES
+ * We mount /movies routes here.
+ * Actual endpoints live inside moviesRoutes.
+ */
+
+/**
  * @swagger
  * /movies:
+ *   get:
+ *     tags: [Movies]
+ *     summary: Get all movies
+ *     description: Returns all movies in the watchlist.
+ *     responses:
+ *       200:
+ *         description: List of movies
+ *
  *   post:
- *     tags:
- *       - Movie Routes
- *     summary: Create a new movie
- *     description: Adds a movie to the watchlist
+ *     tags: [Movies]
+ *     summary: Add a movie
+ *     description: Add a new movie to the watchlist (requires login).
  *     security:
  *       - ApiKeyAuth: []
  *     requestBody:
@@ -69,16 +92,9 @@ router.use("/auth", authRoutes);
  *             owner: "test-user-1"
  *     responses:
  *       201:
- *         description: Movie created successfully
- *
- *   get:
- *     tags:
- *       - Movie Routes
- *     summary: Get all movies
- *     description: Retrieves all movies in the database
- *     responses:
- *       200:
- *         description: A list of movies
+ *         description: Movie created
+ *       401:
+ *         description: Missing/invalid token
  */
 router.use("/movies", moviesRoutes);
 
@@ -86,35 +102,35 @@ router.use("/movies", moviesRoutes);
  * @swagger
  * /movies/{id}:
  *   get:
- *     tags:
- *       - Movie Routes
- *     summary: Get movie by id
- *     description: Retrieves a specific movie by MongoDB id
+ *     tags: [Movies]
+ *     summary: Get one movie
+ *     description: Fetch a single movie by its MongoDB id.
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         description: MongoDB id
  *         schema:
  *           type: string
+ *         description: Movie id
  *     responses:
  *       200:
- *         description: Movie object
+ *         description: Movie found
+ *       404:
+ *         description: Movie not found
  *
  *   put:
- *     tags:
- *       - Movie Routes
- *     summary: Update movie by id
- *     description: Updates a specific movie
+ *     tags: [Movies]
+ *     summary: Update a movie
+ *     description: Update an existing movie (requires login).
  *     security:
  *       - ApiKeyAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         description: MongoDB id
  *         schema:
  *           type: string
+ *         description: Movie id
  *     requestBody:
  *       required: true
  *       content:
@@ -124,132 +140,137 @@ router.use("/movies", moviesRoutes);
  *     responses:
  *       200:
  *         description: Movie updated
+ *       401:
+ *         description: Missing/invalid token
+ *       404:
+ *         description: Movie not found
  *
  *   delete:
- *     tags:
- *       - Movie Routes
- *     summary: Delete movie by id
- *     description: Deletes a specific movie
+ *     tags: [Movies]
+ *     summary: Delete a movie
+ *     description: Remove a movie from the watchlist (requires login).
  *     security:
  *       - ApiKeyAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         description: MongoDB id
  *         schema:
  *           type: string
+ *         description: Movie id
  *     responses:
  *       200:
  *         description: Movie deleted
+ *       401:
+ *         description: Missing/invalid token
+ *       404:
+ *         description: Movie not found
  */
 
 /**
  * @swagger
  * /movies/query/{field}/{value}:
  *   get:
- *     tags:
- *       - Movie Routes
- *     summary: Search movies by field/value
- *     description: "Example: /api/movies/search/title/Dune"
+ *     tags: [Movies]
+ *     summary: Filter movies
+ *     description: Filter by a field/value pair (example: genre/Action or title/Dune).
  *     parameters:
  *       - in: path
  *         name: field
  *         required: true
  *         schema:
  *           type: string
- *         description: Field to search by (title, genre, owner, etc.)
+ *         description: Field name (title, genre, owner, etc.)
  *       - in: path
  *         name: value
  *         required: true
  *         schema:
  *           type: string
- *         description: Value to match (case-insensitive)
+ *         description: Value to match
  *     responses:
  *       200:
- *         description: List of movies
+ *         description: Matching movies
+ */
+
+/**
+ * FAVORITES
+ * (These routes must exist in moviesRoutes, otherwise swagger will show them but they won’t work.)
  */
 
 /**
  * @swagger
  * /movies/favorites:
  *   get:
- *     tags:
- *       - Movie Routes
- *     summary: Get favorite movies for current user
- *     description: Returns full movie objects saved as favorites by the authenticated user
+ *     tags: [Favorites]
+ *     summary: Get favorite movies
+ *     description: Returns full movie objects that the logged-in user marked as favorite.
  *     security:
  *       - ApiKeyAuth: []
  *     responses:
  *       200:
- *         description: List of favorite movies
+ *         description: Favorite movies
  *       401:
- *         description: Missing or invalid token
+ *         description: Missing/invalid token
  */
 
 /**
  * @swagger
  * /movies/favorites/ids:
  *   get:
- *     tags:
- *       - Movie Routes
- *     summary: Get favorite movie ids for current user
- *     description: Returns only movie ids saved as favorites by the authenticated user
+ *     tags: [Favorites]
+ *     summary: Get favorite ids
+ *     description: Returns only movie ids for the logged-in user's favorites.
  *     security:
  *       - ApiKeyAuth: []
  *     responses:
  *       200:
- *         description: List of favorite movie ids
+ *         description: Favorite movie ids
  *       401:
- *         description: Missing or invalid token
+ *         description: Missing/invalid token
  */
 
 /**
  * @swagger
  * /movies/{id}/favorite:
  *   post:
- *     tags:
- *       - Movie Routes
- *     summary: Add movie to favorites
- *     description: Adds the specified movie to the authenticated user's favorites list
+ *     tags: [Favorites]
+ *     summary: Add to favorites
+ *     description: Mark a movie as favorite for the logged-in user.
  *     security:
  *       - ApiKeyAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         description: MongoDB movie id
  *         schema:
  *           type: string
+ *         description: Movie id
  *     responses:
  *       200:
- *         description: Updated favorite movie ids
+ *         description: Updated favorites list
  *       401:
- *         description: Missing or invalid token
+ *         description: Missing/invalid token
  *       404:
- *         description: Movie or user not found
+ *         description: Movie not found
  *
  *   delete:
- *     tags:
- *       - Movie Routes
- *     summary: Remove movie from favorites
- *     description: Removes the specified movie from the authenticated user's favorites list
+ *     tags: [Favorites]
+ *     summary: Remove from favorites
+ *     description: Unfavorite a movie for the logged-in user.
  *     security:
  *       - ApiKeyAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         description: MongoDB movie id
  *         schema:
  *           type: string
+ *         description: Movie id
  *     responses:
  *       200:
- *         description: Updated favorite movie ids
+ *         description: Updated favorites list
  *       401:
- *         description: Missing or invalid token
- *       404:
- *         description: User not found
+ *         description: Missing/invalid token
  */
 
 export default router;

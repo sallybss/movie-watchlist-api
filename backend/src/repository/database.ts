@@ -19,7 +19,6 @@ export async function connect() {
       throw new Error("DBHOST environment variable is not defined");
     }
 
-    // 1 = connected, 2 = connecting
     if (mongoose.connection.readyState === 1) return;
     if (mongoose.connection.readyState === 2 && connectPromise) {
       await connectPromise;
@@ -43,7 +42,6 @@ export async function connect() {
 }
 
 export async function disconnect(force = false) {
-  // Keep one shared connection alive for request handlers.
   if (!force) return;
 
   try {
