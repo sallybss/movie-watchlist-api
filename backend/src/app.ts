@@ -9,46 +9,31 @@ dotenvFlow.config();
 
 const app: Application = express();
 
-/**
- * CORS configuration
- * Allows:
- *  - Local development (Vite)
- *  - Production frontend (Render Static Site)
- *  - Postman (no origin)
- */
-const allowedOrigins = [
+const allowedOrigins = new Set([
   "http://localhost:5173",
-  "https://movie-watchlist-api-1.onrender.com/",
-];
+  "https://movie-watchlist-api-1.onrender.com", 
+]);
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (Postman, server-to-server)
-      if (!origin) return callback(null, true);
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    // allow tools like Postman/curl (no Origin header)
+    if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+    if (allowedOrigins.has(origin)) return callback(null, true);
 
-      return callback(new Error("CORS blocked for origin: " + origin));
-    },
-    methods: ["GET", "PUT", "POST", "DELETE"],
-    allowedHeaders: [
-      "auth-token",
-      "Authorization",
-      "Origin",
-      "Content-Type",
-      "Accept",
-    ],
-    credentials: false, // we are using JWT headers, NOT cookies
-  })
-);
+    // IMPORTANT: don't throw an error, just block cleanly
+    return callback(null, false);
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "auth-token"],
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); 
 
 app.use(express.json());
 
 app.use("/api", routes);
-
 setupDocs(app);
 
 export async function startServer() {
