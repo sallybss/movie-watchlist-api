@@ -11,24 +11,22 @@ const app: Application = express();
 
 const allowedOrigins = new Set([
   "http://localhost:5173",
-  "https://movie-watchlist-api-1.onrender.com", // your frontend
+  "https://movie-watchlist-api-1.onrender.com", 
 ]);
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    // allow Postman/curl (no Origin header)
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.has(origin)) return callback(null, true);
 
-    // block unknown origins (no crash)
     return callback(null, false);
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "auth-token"],
 };
 
-app.use(cors(corsOptions)); // ✅ this is enough (preflight included)
+app.use(cors(corsOptions)); 
 
 app.use(express.json());
 
