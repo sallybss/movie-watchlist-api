@@ -50,7 +50,7 @@ router.get("/", (_req: Request, res: Response) => {
  *       201:
  *         description: User created
  *       400:
- *         description: Validation error / email already exists
+ *         description: Validation error (for example: email already exists)
  */
 router.use("/auth", authRoutes);
 
@@ -171,22 +171,23 @@ router.use("/movies", moviesRoutes);
  * @swagger
  * /movies/query/{field}/{value}:
  *   get:
- *     tags: [Movies]
+ *     tags:
+ *       - Movies
  *     summary: Filter movies
- *     description: Filter by a field/value pair (example: genre/Action or title/Dune).
+ *     description: Filter by a field/value pair.
  *     parameters:
  *       - in: path
  *         name: field
  *         required: true
  *         schema:
  *           type: string
- *         description: Field name (title, genre, owner, etc.)
+ *         description: Field to filter by (title, genre, owner, etc.)
  *       - in: path
  *         name: value
  *         required: true
  *         schema:
  *           type: string
- *         description: Value to match
+ *         description: Value to match (case-insensitive).
  *     responses:
  *       200:
  *         description: Matching movies
