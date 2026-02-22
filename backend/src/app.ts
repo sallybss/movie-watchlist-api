@@ -9,12 +9,41 @@ dotenvFlow.config();
 
 const app: Application = express();
 
-app.use(cors({
-  origin: "http://localhost:5173",
-  methods: ["GET", "PUT", "POST", "DELETE"],
-  allowedHeaders: ["auth-token", "Authorization", "Origin", "Content-Type", "Accept"],
-  credentials: true
-}));
+/**
+ * CORS configuration
+ * Allows:
+ *  - Local development (Vite)
+ *  - Production frontend (Render Static Site)
+ *  - Postman (no origin)
+ */
+const allowedOrigins = [
+  "http://localhost:5173",
+  "hhttps://movie-watchlist-api-1.onrender.com/", // 👈 REPLACE THIS
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (Postman, server-to-server)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("CORS blocked for origin: " + origin));
+    },
+    methods: ["GET", "PUT", "POST", "DELETE"],
+    allowedHeaders: [
+      "auth-token",
+      "Authorization",
+      "Origin",
+      "Content-Type",
+      "Accept",
+    ],
+    credentials: false, // we are using JWT headers, NOT cookies
+  })
+);
 
 app.use(express.json());
 

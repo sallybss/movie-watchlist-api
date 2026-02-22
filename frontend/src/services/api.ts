@@ -1,5 +1,7 @@
 const API_BASE =
-  import.meta.env.VITE_API_BASE?.replace(/\/$/, "") || "http://localhost:4000/api";
+  (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ||
+  "http://localhost:4000/api";
+
 
 export type Movie = {
   _id: string;
