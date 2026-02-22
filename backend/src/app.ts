@@ -21,15 +21,14 @@ const corsOptions: cors.CorsOptions = {
 
     if (allowedOrigins.has(origin)) return callback(null, true);
 
-    // block unknown origins without throwing
+    // block unknown origins (no crash)
     return callback(null, false);
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "auth-token"],
 };
 
-app.use(cors(corsOptions));
-app.options("/*", cors(corsOptions)); // ✅ Express 5-safe (NOT "*")
+app.use(cors(corsOptions)); // ✅ this is enough (preflight included)
 
 app.use(express.json());
 
