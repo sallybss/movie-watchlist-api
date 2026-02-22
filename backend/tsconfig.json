@@ -1,19 +1,17 @@
 {
   "compilerOptions": {
-    // "allowJs": true,
-    // "checkJs": true,
     "target": "es2016",
     "module": "commonjs",
     "moduleResolution": "node",
     "baseUrl": ".",
-    // "paths": {
-    //   "*": ["node_modules/*"]
-    // },
     "resolveJsonModule": true,
     "sourceMap": true,
     "outDir": "dist",
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": false,
+
+    "types": ["node"],
+
+    "forceConsistentCasingInFileNames": true,
     "strict": true,
     "noImplicitAny": true,
     "skipLibCheck": true
