@@ -11,17 +11,17 @@ const app: Application = express();
 
 const allowedOrigins = new Set([
   "http://localhost:5173",
-  "https://movie-watchlist-api-1.onrender.com", 
+  "https://movie-watchlist-api-1.onrender.com", // your frontend
 ]);
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    // allow tools like Postman/curl (no Origin header)
+    // allow Postman/curl (no Origin header)
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.has(origin)) return callback(null, true);
 
-    // IMPORTANT: don't throw an error, just block cleanly
+    // block unknown origins without throwing
     return callback(null, false);
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -29,7 +29,7 @@ const corsOptions: cors.CorsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); 
+app.options("/*", cors(corsOptions)); // ✅ Express 5-safe (NOT "*")
 
 app.use(express.json());
 
