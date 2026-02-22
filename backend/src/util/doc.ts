@@ -1,9 +1,11 @@
 import swaggerUi from "swagger-ui-express";
 import swaggerJSDoc from "swagger-jsdoc";
-import { Application } from "express";
+import type { Application } from "express";
 import path from "path";
 
 export function setupDocs(app: Application) {
+  const isProd = process.env.NODE_ENV === "production";
+
   const swaggerDefinition = {
     openapi: "3.0.0",
     info: {
@@ -14,14 +16,10 @@ export function setupDocs(app: Application) {
     },
     servers: [
       {
-        url:
-          process.env.NODE_ENV === "production"
-            ? "https://YOUR-BACKEND-NAME.onrender.com/api"
-            : "http://localhost:4000/api",
-        description:
-          process.env.NODE_ENV === "production"
-            ? "Production server"
-            : "Local development server",
+        url: isProd
+          ? "https://movie-watchlist-api-7fxk.onrender.com/api"
+          : "http://localhost:4000/api",
+        description: isProd ? "Production server" : "Local development server",
       },
     ],
     components: {
@@ -42,30 +40,28 @@ export function setupDocs(app: Application) {
             watched: { type: "boolean" },
             rating: { type: "number" },
             owner: { type: "string" },
+            posterUrl: { type: "string" },
           },
         },
         User: {
           type: "object",
           properties: {
-            id: { type: "string" },
             name: { type: "string" },
             email: { type: "string" },
             password: { type: "string" },
-            registerDate: { type: "string" },
           },
         },
       },
     },
   };
 
-  const isProd = process.env.NODE_ENV === "production";
-
   const options = {
     swaggerDefinition,
+    // In Render (prod) you're running the compiled JS in /dist
     apis: [
       isProd
-        ? path.join(__dirname, "..", "**", "*.js") 
-        : path.join(process.cwd(), "src", "**", "*.ts"), 
+        ? path.join(process.cwd(), "dist", "**", "*.js")
+        : path.join(process.cwd(), "src", "**", "*.ts"),
     ],
   };
 
