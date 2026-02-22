@@ -18,7 +18,7 @@ const app: Application = express();
  */
 const allowedOrigins = [
   "http://localhost:5173",
-  "hhttps://movie-watchlist-api-1.onrender.com/", // 👈 REPLACE THIS
+  "https://movie-watchlist-api-1.onrender.com/",
 ];
 
 app.use(
