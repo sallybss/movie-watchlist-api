@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue"
+import { computed, onMounted, onUnmounted, ref, watch } from "vue"
 import MovieCard from "../components/MovieCard.vue"
 import {
   addFavoriteMovie,
   getAllMovies,
   getFavoriteMovieIds,
+  hasValidToken,
   removeFavoriteMovie,
   type Movie as ApiMovie,
 } from "../services/api"
@@ -20,9 +21,10 @@ const loading = ref(false)
 const errorMsg = ref<string | null>(null)
 const isLoggedIn = ref(false)
 const favoriteMovieIds = ref<string[]>([])
+const activeIndex = ref(0)
 
 function syncAuthState() {
-  isLoggedIn.value = Boolean(localStorage.getItem("token"))
+  isLoggedIn.value = hasValidToken()
   if (!isLoggedIn.value) {
     favoriteMovieIds.value = []
   }
@@ -39,26 +41,78 @@ const filteredMovies = computed(() => {
   return movies.value.filter((m) => (m.title || "").toLowerCase().includes(q))
 })
 
-const stackMovies = computed(() => filteredMovies.value.slice(0, 4))
+function wrapIndex(index: number, total: number) {
+  return ((index % total) + total) % total
+}
 
-const featuredMovie = computed(() => {
-  return filteredMovies.value[0] ?? movies.value[0] ?? null
+const normalizedActiveIndex = computed(() => {
+  const total = filteredMovies.value.length
+  if (!total) return 0
+  return wrapIndex(activeIndex.value, total)
 })
 
-const featuredMediaStyle = computed(() => {
-  if (!featuredMovie.value?.posterUrl) return {}
-  return { backgroundImage: `url(${featuredMovie.value.posterUrl})` }
+const activeMovie = computed(() => {
+  const list = filteredMovies.value
+  if (!list.length) return null
+  return list[normalizedActiveIndex.value]
 })
+
+const carouselSlides = computed(() => {
+  const list = filteredMovies.value
+  if (!list.length) return []
+
+  const offsets = [-2, -1, 0, 1, 2]
+  return offsets.map((offset) => {
+    const index = wrapIndex(normalizedActiveIndex.value + offset, list.length)
+    const movie = list[index]!
+    return {
+      movie,
+      offset,
+      key: `${movie._id}-${offset}`,
+    }
+  })
+})
+
+watch(filteredMovies, (list) => {
+  if (!list.length) {
+    activeIndex.value = 0
+    return
+  }
+  activeIndex.value = wrapIndex(activeIndex.value, list.length)
+})
+
+function prevSlide() {
+  const total = filteredMovies.value.length
+  if (!total) return
+  activeIndex.value = wrapIndex(activeIndex.value - 1, total)
+}
+
+function nextSlide() {
+  const total = filteredMovies.value.length
+  if (!total) return
+  activeIndex.value = wrapIndex(activeIndex.value + 1, total)
+}
+
+function setSlideByOffset(offset: number) {
+  const total = filteredMovies.value.length
+  if (!total) return
+  activeIndex.value = wrapIndex(activeIndex.value + offset, total)
+}
+
+function slidePositionClass(offset: number) {
+  if (offset === 0) return "slide--center"
+  if (offset === -1) return "slide--left"
+  if (offset === 1) return "slide--right"
+  if (offset === -2) return "slide--far-left"
+  return "slide--far-right"
+}
 
 async function fetchMovies() {
   loading.value = true
   errorMsg.value = null
 
   try {
-    // Uses your API helper (respects VITE_API_BASE + token headers etc.)
     const data = await getAllMovies()
-
-    // If your backend doesn't have posterUrl, we keep it optional
     movies.value = (data as Movie[]) || []
   } catch (err: any) {
     errorMsg.value = err?.message || "Could not fetch movies"
@@ -113,48 +167,74 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="spotlight">
-    <div class="stack" aria-hidden="true">
-      <article
-        v-for="(m, i) in stackMovies"
-        :key="m._id"
-        class="stack__card"
-        :class="`stack__card--${i + 1}`"
-        :style="m.posterUrl ? { backgroundImage: `url(${m.posterUrl})` } : {}"
-      ></article>
+  <section class="heroCarousel">
+    <button
+      class="carouselNav carouselNav--left"
+      type="button"
+      aria-label="Previous"
+      :disabled="!carouselSlides.length"
+      @click="prevSlide"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M15 5 L8 12 L15 19" />
+      </svg>
+    </button>
+
+    <div class="carouselTrack" aria-live="polite">
+      <button
+        v-for="slide in carouselSlides"
+        :key="slide.key"
+        type="button"
+        class="slide"
+        :class="slidePositionClass(slide.offset)"
+        :style="slide.movie.posterUrl ? { backgroundImage: `url(${slide.movie.posterUrl})` } : {}"
+        :aria-label="`Open ${slide.movie.title}`"
+        @click="setSlideByOffset(slide.offset)"
+      ></button>
     </div>
 
-    <article class="featureCard">
-      <button class="featureCard__close" type="button" aria-label="Close">✕</button>
-      <div class="featureCard__media" :style="featuredMediaStyle"></div>
+    <button
+      class="carouselNav carouselNav--right"
+      type="button"
+      aria-label="Next"
+      :disabled="!carouselSlides.length"
+      @click="nextSlide"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M9 5 L16 12 L9 19" />
+      </svg>
+    </button>
 
-      <div class="featureCard__overlay">
-        <h1>{{ featuredMovie?.title ?? "Your Next Favorite" }}</h1>
+    <div class="heroInfo">
+      <p class="eyebrow">Featured pick</p>
+      <h1>{{ activeMovie?.title ?? "Your Next Favorite" }}</h1>
 
-        <div class="meta">
-          <span>{{ featuredMovie?.rating ?? "-" }} ★</span>
-          <span>{{ featuredMovie?.releaseYear ?? "-" }}</span>
-          <span>{{ featuredMovie?.genre ?? "Unknown" }}</span>
-        </div>
-
-        <p class="featureCard__description">
-          Build your collection, track what you watched, and instantly filter the perfect pick.
-        </p>
-
-        <div v-if="!isLoggedIn" class="featureCard__actions">
-          <router-link class="btnPrimary" to="/register">Get access</router-link>
-          <router-link class="btnGhost" to="/login">Login</router-link>
-        </div>
+      <div class="meta">
+        <span>{{ activeMovie?.rating ?? "-" }} ★</span>
+        <span>{{ activeMovie?.releaseYear ?? "-" }}</span>
+        <span>{{ activeMovie?.genre ?? "Unknown" }}</span>
       </div>
-    </article>
+
+      <div class="heroActions" v-if="activeMovie">
+        <button
+          v-if="isLoggedIn"
+          class="btnList"
+          type="button"
+          @click="onToggleFavorite(activeMovie._id)"
+        >
+          {{ isFavoriteMovie(activeMovie._id) ? "✓ In My List" : "+ Add List" }}
+        </button>
+
+        <router-link v-else class="btnList" to="/login">Login to Add</router-link>
+      </div>
+    </div>
   </section>
 
   <section class="filterBar">
-    <input v-model="search" class="input" placeholder="Search title…" />
+    <input v-model="search" class="input" placeholder="Search by title..." />
   </section>
 
   <section class="sectionHead">
-    <h2>Browse</h2>
     <p v-if="loading">Loading…</p>
     <p v-else>
       {{ filteredMovies.length }} results
@@ -185,156 +265,196 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.spotlight {
-  min-height: 64vh;
+.heroCarousel {
   position: relative;
-  border-radius: 24px;
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-  background: radial-gradient(70% 100% at 65% 20%, rgba(32, 94, 255, 0.2) 0%, rgba(4, 7, 20, 0) 70%);
-}
-
-.stack {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  pointer-events: none;
-}
-
-.stack__card {
-  position: absolute;
-  width: min(420px, 66vw);
-  aspect-ratio: 3 / 4;
-  border-radius: 18px;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.08));
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(4px);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
-  background-size: cover;
-  background-position: center;
-}
-
-.stack__card--1 {
-  transform: translate(-240px, 42px) rotate(-14deg);
-  background: linear-gradient(160deg, rgba(243, 74, 74, 0.45), rgba(83, 23, 19, 0.26));
-}
-.stack__card--2 {
-  transform: translate(-170px, 26px) rotate(-8deg);
-  background: linear-gradient(160deg, rgba(236, 161, 90, 0.44), rgba(145, 79, 30, 0.3));
-}
-.stack__card--3 {
-  transform: translate(-95px, 12px) rotate(-4deg);
-  background: linear-gradient(160deg, rgba(74, 202, 212, 0.48), rgba(16, 57, 73, 0.3));
-}
-.stack__card--4 {
-  transform: translate(-28px, -3px) rotate(-2deg);
-  background: linear-gradient(160deg, rgba(157, 213, 255, 0.42), rgba(38, 85, 123, 0.3));
-}
-
-.featureCard {
-  width: min(680px, 78vw);
-  aspect-ratio: 16 / 10;
-  margin-left: clamp(160px, 27vw, 360px);
-  position: relative;
-  border-radius: 30px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.6);
-  background: #101828;
-}
-
-.featureCard__media {
-  position: absolute;
-  inset: 0;
+  min-height: 74vh;
+  width: 100%;
+  margin: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   background:
-    radial-gradient(90% 130% at 78% 10%, rgba(146, 217, 255, 0.45) 0%, rgba(39, 62, 84, 0.18) 58%, transparent 100%),
-    linear-gradient(130deg, rgba(25, 35, 64, 0.5), rgba(14, 39, 66, 0.1)),
-    linear-gradient(180deg, #6ba3bb 0%, #4c6a75 30%, #1f2937 68%, #0f172a 100%);
+    radial-gradient(900px 420px at 50% 8%, rgba(130, 57, 201, 0.32), rgba(21, 8, 34, 0.08) 58%),
+    linear-gradient(180deg, #09040f 0%, #040207 100%);
+  overflow: hidden;
+}
+
+.carouselTrack {
+  position: relative;
+  height: clamp(300px, 42vw, 470px);
+  display: grid;
+  place-items: center;
+  perspective: 1200px;
+}
+
+.slide {
+  position: absolute;
+  width: min(300px, 56vw);
+  aspect-ratio: 3 / 4;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background:
+    linear-gradient(180deg, rgba(37, 52, 82, 0.6), rgba(12, 17, 34, 0.9)),
+    linear-gradient(130deg, #324d7f, #131d36);
   background-size: cover;
   background-position: center;
+  box-shadow: 0 22px 40px rgba(0, 0, 0, 0.45);
+  transition: transform 0.35s ease, opacity 0.35s ease, filter 0.35s ease;
+  cursor: pointer;
 }
 
-.featureCard__overlay {
-  position: absolute;
-  inset: auto 0 0;
-  padding: 24px 24px 22px;
-  background: linear-gradient(180deg, rgba(2, 8, 23, 0.05) 0%, rgba(2, 8, 23, 0.94) 82%);
+.slide--far-left {
+  transform: translateX(-64%) scale(0.8) rotateY(26deg);
+  opacity: 0.24;
+  filter: blur(1px);
 }
 
-.featureCard__close {
-  position: absolute;
-  top: 18px;
-  right: 18px;
+.slide--left {
+  transform: translateX(-35%) scale(0.9) rotateY(14deg);
+  opacity: 0.7;
+}
+
+.slide--right {
+  transform: translateX(35%) scale(0.9) rotateY(-14deg);
+  opacity: 0.7;
+}
+
+.slide--far-right {
+  transform: translateX(64%) scale(0.8) rotateY(-26deg);
+  opacity: 0.24;
+  filter: blur(1px);
+}
+
+.slide--far-left,
+.slide--left,
+.slide--right,
+.slide--far-right {
+  pointer-events: auto;
+}
+
+.slide--far-left,
+.slide--left,
+.slide--right,
+.slide--far-right {
   z-index: 2;
-  width: 36px;
-  height: 36px;
-  border: none;
+}
+
+.slide--center {
+  z-index: 4;
+  opacity: 1;
+  transform: translateX(0) scale(1.02);
+}
+
+.carouselNav {
+  position: absolute;
+  top: 42%;
+  transform: translateY(-50%);
+  z-index: 8;
+  width: 58px;
+  height: 58px;
   border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.38);
+  background: rgba(26, 10, 40, 0.5);
+  backdrop-filter: blur(6px);
   color: #fff;
-  background: rgba(15, 23, 42, 0.44);
-  font-size: 18px;
-  cursor: default;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.42);
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.carouselNav svg {
+  width: 24px;
+  height: 24px;
+  stroke: #ffffff;
+  stroke-width: 2.6;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.carouselNav:hover {
+  border-color: rgba(255, 255, 255, 0.68);
+  background: rgba(42, 16, 63, 0.74);
+  transform: translateY(-50%) scale(1.04);
+}
+
+.carouselNav:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.carouselNav--left { left: clamp(18px, 3.4vw, 54px); }
+.carouselNav--right { right: clamp(18px, 3.4vw, 54px); }
+
+.heroInfo {
+  width: min(760px, 100%);
+  margin: 8px auto 0;
+  text-align: center;
+}
+
+.eyebrow {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
 }
 
 h1 {
-  margin: 0;
-  font-size: clamp(28px, 4vw, 40px);
-  line-height: 1.04;
+  margin: 8px 0 0;
+  font-size: 32px;
+  line-height: 0.95;
 }
 
 .meta {
-  margin-top: 8px;
+  margin-top: 10px;
   display: flex;
+  justify-content: center;
   gap: 12px;
   color: rgba(255, 255, 255, 0.88);
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 700;
+  font-size: 13px;
+  flex-wrap: wrap;
 }
 
-.featureCard__description {
-  margin: 12px 0 0;
-  opacity: 0.82;
-  max-width: 58ch;
-}
-
-.featureCard__actions {
+.heroActions {
   display: flex;
+  justify-content: center;
   gap: 10px;
   margin-top: 16px;
+  flex-wrap: wrap;
 }
 
-.btnPrimary,
-.btnGhost {
+.btnPlay,
+.btnList {
+  border: none;
+  height: 44px;
+  border-radius: 8px;
+  text-decoration: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 42px;
-  padding: 0 16px;
-  border-radius: 12px;
-  text-decoration: none;
-  font-weight: 900;
+  font-weight: 700;
 }
 
-.btnPrimary {
-  background: #ef1d24;
+.btnPlay {
+  background: #7664d7;
   color: #fff;
 }
 
-.btnGhost {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  color: #fff;
+.btnList {
+  background: #f4d139;
+  color: #111827;
 }
 
 .filterBar {
   margin-top: 16px;
-  border-radius: 18px;
-  background: rgba(13, 24, 48, 0.64);
+  margin-left: 24px;
+  margin-right: 24px;
+  border-radius: 10px;
+  background: rgba(31, 13, 46, 0.56);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 14px;
-  display: block;
+  padding: 12px;
 }
 
 .input {
@@ -343,10 +463,15 @@ h1 {
   border: 1px solid rgba(255, 255, 255, 0.16);
   color: #fff;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: 8px;
   outline: none;
   min-height: 44px;
   box-sizing: border-box;
+}
+
+.input:focus {
+  border-color: rgba(167, 127, 255, 0.62);
+  box-shadow: 0 0 0 3px rgba(138, 87, 230, 0.22);
 }
 
 .input::placeholder {
@@ -357,14 +482,19 @@ h1 {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin: 22px 2px 10px;
+  margin: 22px 24px 10px;
 }
-.sectionHead h2 { margin: 0; }
-.sectionHead p { margin: 0; opacity: 0.7; }
+
+.sectionHead p {
+  margin: 0;
+  opacity: 0.7;
+}
 
 .empty {
   opacity: 0.9;
   padding: 30px 0;
+  margin-left: 24px;
+  margin-right: 24px;
   text-align: center;
 }
 
@@ -381,8 +511,8 @@ h1 {
 .retry {
   height: 40px;
   padding: 0 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(118, 100, 215, 0.25);
   color: #fff;
   font-weight: 900;
@@ -391,37 +521,68 @@ h1 {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(235px, 1fr));
   gap: 18px;
-}
-
-@media (max-width: 1080px) {
-  .featureCard {
-    width: min(640px, 84vw);
-    margin-left: clamp(20px, 18vw, 180px);
-  }
+  margin-left: 24px;
+  margin-right: 24px;
 }
 
 @media (max-width: 900px) {
-  .spotlight {
-    min-height: 52vh;
-  }
-
-  .stack {
-    display: none;
-  }
-
-  .featureCard {
+  .heroCarousel {
+    min-height: 62vh;
     width: 100%;
-    margin-left: 0;
+    margin: 0;
+    padding-top: 20px;
   }
 
-  .featureCard__overlay {
-    padding: 18px 16px 16px;
+  .carouselTrack {
+    height: 320px;
+  }
+
+  .slide {
+    width: min(220px, 64vw);
+  }
+
+  .slide--far-left,
+  .slide--far-right {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .slide--left {
+    transform: translateX(-34%) scale(0.84);
+  }
+
+  .slide--right {
+    transform: translateX(34%) scale(0.84);
+  }
+
+  .slide--center {
+    transform: translateX(0) scale(1);
+    opacity: 1;
   }
 
   h1 {
-    font-size: 30px;
+    font-size: clamp(30px, 10vw, 46px);
   }
+
+  .carouselNav {
+    width: 46px;
+    height: 46px;
+  }
+
+  .carouselNav svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .filterBar,
+  .sectionHead,
+  .empty,
+  .grid {
+    margin-left: 16px;
+    margin-right: 16px;
+  }
+
 }
 </style>

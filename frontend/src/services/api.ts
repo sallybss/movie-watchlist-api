@@ -1,4 +1,3 @@
-// frontend/services/api.ts
 const API_BASE =
   import.meta.env.VITE_API_BASE?.replace(/\/$/, "") || "http://localhost:4000/api";
 
@@ -23,10 +22,22 @@ export type RegisterResponse = {
 };
 
 function getToken() {
-  return localStorage.getItem("token");
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+
+  if (isTokenExpired(token)) {
+    logout();
+    return null;
+  }
+
+  return token;
 }
 
 export function isLoggedIn() {
+  return Boolean(getToken());
+}
+
+export function hasValidToken() {
   return Boolean(getToken());
 }
 
@@ -45,14 +56,32 @@ type FavoritesResponse<T> = {
 
 function getNameFromToken(token: string): string | null {
   try {
-    const parts = token.split(".");
-    const payloadPart = parts[1];
-    if (!payloadPart) return null;
-    const payload = JSON.parse(atob(payloadPart)) as { name?: string };
+    const payload = decodeJwtPayload(token) as { name?: string } | null;
+    if (!payload) return null;
     return typeof payload?.name === "string" ? payload.name : null;
   } catch {
     return null;
   }
+}
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split(".");
+    const payloadPart = parts[1];
+    if (!payloadPart) return null;
+    const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    return JSON.parse(atob(padded)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function isTokenExpired(token: string): boolean {
+  const payload = decodeJwtPayload(token);
+  const exp = typeof payload?.exp === "number" ? payload.exp : null;
+  if (!exp) return false;
+  return Date.now() >= exp * 1000;
 }
 
 async function parseResponse(res: Response) {
@@ -65,12 +94,6 @@ async function parseResponse(res: Response) {
   }
 }
 
-/**
- * Generic fetch that automatically:
- * - sets Content-Type JSON
- * - attaches auth-token if available
- * - throws a readable Error when request fails
- */
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
@@ -83,10 +106,8 @@ export async function apiFetch<T>(
   };
 
   if (token) {
-    // matches your backend middleware
     headers["auth-token"] = token;
-    // if you also support Bearer in backend, you can enable this instead:
-    // headers["Authorization"] = `Bearer ${token}`;
+
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
@@ -97,13 +118,16 @@ export async function apiFetch<T>(
   const data = await parseResponse(res);
 
   if (!res.ok) {
+    if (res.status === 401) {
+      logout();
+      throw new Error("Session expired. Please login again.");
+    }
     throw new Error(data?.error || `Request failed (${res.status})`);
   }
 
   return data as T;
 }
 
-// ---------- AUTH ----------
 export async function registerUser(name: string, email: string, password: string) {
   return apiFetch<RegisterResponse>("/auth/register", {
     method: "POST",
@@ -117,7 +141,6 @@ export async function loginUser(email: string, password: string) {
     body: JSON.stringify({ email, password }),
   });
 
-  // save token if backend returned it
   if (res?.data?.token) {
     localStorage.setItem("token", res.data.token);
     localStorage.setItem("userId", res.data.userId);
@@ -132,7 +155,6 @@ export async function loginUser(email: string, password: string) {
   return res;
 }
 
-// ---------- MOVIES ----------
 export async function getAllMovies() {
   return apiFetch<Movie[]>("/movies", { method: "GET" });
 }
@@ -167,7 +189,6 @@ export async function removeFavoriteMovie(movieId: string) {
   return res?.data ?? [];
 }
 
-// protected create (if your backend uses verifyToken on POST /movies)
 export async function createMovie(movie: Partial<Movie>) {
   return apiFetch<Movie>("/movies", {
     method: "POST",

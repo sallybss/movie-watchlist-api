@@ -1,10 +1,10 @@
-// frontend/src/router/index.ts
 import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router"
 
 import Home from "../pages/Home.vue"
 import Login from "../pages/Login.vue"
 import Register from "../pages/Register.vue"
 import Watchlist from "../pages/Watchlist.vue"
+import { hasValidToken } from "../services/api"
 
 const routes: RouteRecordRaw[] = [
   { path: "/", name: "home", component: Home },
@@ -22,8 +22,7 @@ export const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  const token = localStorage.getItem("token")
-  if (to.meta.requiresAuth && !token) return { name: "login" }
+  if (to.meta.requiresAuth && !hasValidToken()) return { name: "login" }
 })
 
 export default router

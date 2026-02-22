@@ -1,7 +1,15 @@
+<script lang="ts">
+import { defineComponent } from "vue";
+
+export default defineComponent({
+  name: "Navbar",
+});
+</script>
+
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { logout } from "../services/api";
+import { hasValidToken, logout } from "../services/api";
 
 const router = useRouter();
 
@@ -22,6 +30,11 @@ function getNameFromToken(token: string): string | null {
 }
 
 function syncAuthState() {
+  if (!hasValidToken()) {
+    currentUser.value = "";
+    return;
+  }
+
   const token = localStorage.getItem("token");
   const userId = localStorage.getItem("userId");
 
@@ -62,7 +75,9 @@ onUnmounted(() => {
 <template>
   <nav class="navbar">
     <div class="left">
-      <router-link to="/" class="brand">WATCHLIST</router-link>
+      <router-link to="/" class="brand" aria-label="Watchlist home">
+        <img src="/logo.png" alt="Watchlist" class="brandLogo" />
+      </router-link>
 
       <div class="links">
         <router-link class="link" to="/">For you</router-link>
@@ -89,7 +104,10 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   gap: 20px;
-  padding: 22px 32px 10px;
+  padding: 18px 24px 10px;
+  background:
+    linear-gradient(90deg, rgba(57, 24, 82, 0.72), rgba(14, 6, 23, 0.84) 68%, rgba(5, 2, 9, 0.92));
+  border-bottom: 1px solid rgba(180, 118, 255, 0.15);
 }
 
 .left {
@@ -101,11 +119,14 @@ onUnmounted(() => {
 
 .brand {
   text-decoration: none;
-  color: #7664d7;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  font-size: 34px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
+.brandLogo {
+  height: 52px;
+  width: auto;
+  display: block;
 }
 
 .links {
@@ -131,7 +152,7 @@ onUnmounted(() => {
 
 .link.router-link-active {
   color: #fff;
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .right {
@@ -174,11 +195,15 @@ onUnmounted(() => {
 
 @media (max-width: 900px) {
   .navbar {
-    padding: 16px 16px 8px;
+    padding: 14px 16px 8px;
   }
 
   .brand {
-    font-size: 28px;
+    line-height: 1;
+  }
+
+  .brandLogo {
+    height: 40px;
   }
 
   .links {
