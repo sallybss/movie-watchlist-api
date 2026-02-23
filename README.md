@@ -58,7 +58,7 @@ The frontend was built using:
 
 ---
 
-## 🧪 Testing
+## Testing
 
 All API endpoints were tested using Postman during development.
 
@@ -71,14 +71,3 @@ The application is deployed on **Render**:
 - Backend → Web Service
 - Frontend → Static Site
 
-Environment variables were configured for production, including:
-- Database connection string
-- JWT secret
-- API base URL
-
----
-
-## 📌 Author
-
-Sali Bseso  
-Compulsory REST API Assignment
