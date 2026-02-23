@@ -7,9 +7,8 @@ It is a full-stack Movie Watchlist application that includes a REST API backend 
 
 ## 🔗 Live Links
 
-- 🌐 Frontend: https://movie-watchlist-api-1.onrender.com/
-- 📘 Swagger Documentation: https://movie-watchlist-api-7fxk.onrender.com/swagger
-- 💻 GitHub Repository: https://github.com/sallybss/movie-watchlist-api
+- Frontend: https://movie-watchlist-api-1.onrender.com/
+- Swagger Documentation: https://movie-watchlist-api-7fxk.onrender.com/swagger
 
 ---
 
