@@ -14,7 +14,7 @@ It is a full-stack Movie Watchlist application that includes a REST API backend 
 
 ## 🏗 Project Structure
 
-The project is divided into two main folders:
+The project is divided into two main folders - frontend/ and backend/
 This separation follows common full-stack development practices.
 
 ---
